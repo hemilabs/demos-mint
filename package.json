@@ -1,0 +1,14 @@
+{
+  "devDependencies": {
+    "eslint": "8.57.1",
+    "eslint-config-bloq": "4.5.0"
+  },
+  "dependencies": {
+    "hemi-viem": "2.3.2",
+    "p-retry": "4.6.2",
+    "viem": "2.23.7"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
