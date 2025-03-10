@@ -9,6 +9,7 @@ const {
 const { hemi } = require("hemi-viem");
 const { privateKeyToAccount } = require("viem/accounts");
 const { readFileSync } = require("fs");
+const pFilter = require("p-filter");
 
 try {
   process.loadEnvFile();
@@ -16,9 +17,10 @@ try {
   // Ignore the error
 }
 
-const MINT_TOKENS = process.env.MINT_TOKENS === "true";
 const PRIVATE_KEY = /** @type {`0x${string}`} */ (process.env.PRIVATE_KEY);
 const BATCH_SIZE = 50;
+
+const dryRun = process.argv.includes("--dry-run");
 
 const tokenContract = {
   abi: [
@@ -90,12 +92,9 @@ async function mintBatch(addresses) {
 }
 
 async function mintTokens() {
-  // Parse the CSV file and remove the header
-  const csvContent = readFileSync("holders.csv", "utf-8");
-  const records = csvContent
-    .split("\n")
-    .map((line) => ({ address: line.split(",")[0] }));
-  records.shift();
+  // Parse the file having one address per line
+  const csvContent = readFileSync("holders.txt", "utf-8");
+  const records = csvContent.split("\n");
 
   // Split the records in chunks having at most BATCH_SIZE elements each
   const chunks = Array.from(
@@ -105,29 +104,26 @@ async function mintTokens() {
 
   for (const chunk of chunks) {
     // For each chunk, check the balance of each address and keep only the ones
-    // with 0 balance
-    const addresses = await Promise.all(
-      chunk.map(async function ({ address }) {
-        const balance = await publicClient.readContract({
-          ...tokenContract,
-          args: [address],
-          functionName: "balanceOf",
-        });
-        return balance === 0n ? address : null;
-      })
-    );
-    const filtered = addresses.filter(Boolean);
+    // with no balance
+    const addresses = await pFilter(chunk, async function (address) {
+      const balance = await publicClient.readContract({
+        ...tokenContract,
+        args: [address],
+        functionName: "balanceOf",
+      });
+      return balance === 0n;
+    });
 
     // If there are no addresses left in the batch, skip it
-    if (!filtered.length) {
+    if (!addresses.length) {
       return;
     }
 
     // Otherwise, mint the tokens (or estimate the gas cost)
-    if (MINT_TOKENS) {
-      await mintBatch(filtered);
+    if (dryRun) {
+      await estimateBatch(addresses);
     } else {
-      await estimateBatch(filtered);
+      await mintBatch(addresses);
     }
   }
 }

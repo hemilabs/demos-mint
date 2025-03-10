@@ -5,6 +5,7 @@
   },
   "dependencies": {
     "hemi-viem": "2.3.2",
+    "p-filter": "2.1.0",
     "p-retry": "4.6.2",
     "viem": "2.23.7"
   },
