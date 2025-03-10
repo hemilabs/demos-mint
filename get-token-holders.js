@@ -11,13 +11,15 @@ const explorerUrl = hemiViem.hemiSepolia.blockExplorers.default.url;
 
 async function getTokenHolders() {
   const holdersFile = fs.createWriteStream("holders.csv");
-  holdersFile.write("address,balance\n");
+  holdersFile.write("address\n");
 
+  // Get all holders pages from the explorer API and write them to a CSV file
   await pDoWhilst(
     async function (lastResponse = { count: 0 }) {
       const url = `${explorerUrl}/api/v2/tokens/${tokenAddress}/holders`;
       const query = new URLSearchParams(lastResponse.next_page_params || {});
 
+      // Make sure to retry the request as the explorer API might be unstable
       const { items, next_page_params } = await pRetry(
         async function () {
           const res = await fetch(`${url}?${query.toString()}`);
@@ -32,7 +34,7 @@ async function getTokenHolders() {
       );
 
       items.forEach(function (item) {
-        holdersFile.write(`${item.address.hash},${item.value}\n`);
+        holdersFile.write(`${item.address.hash}\n`);
       });
 
       return {
